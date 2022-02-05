@@ -10,7 +10,7 @@ JOVIAN_RADIATION_STEP = 100
 
 # DEFAULT CONFIG    
 update_jovian_radiation = True
-jovian_radiation_distance = 8 * JOVIAN_RADIATION_STEP
+jovian_radiation_distance = 3 * JOVIAN_RADIATION_STEP
 update_discoverability_of_prev_biomes = True
 unlock_biome_passages = True
 
@@ -48,22 +48,30 @@ def findAllConnectionsBetweenBiomes(locations):
     connection_between_biomes = []
     for biome in biomes[1:]:
         connection_between_biomes.append(findConnectionToBiome(locations, biome))
-    return connection_between_biomes
+    return connection_between_biomes  
 
 def setDiscoveredInLocations(locations, discovered):
     for loc in locations:
         locations[loc].attrib['discovered'] = str(discovered).lower()
-        locations[loc].set('updated', 'yes')
 
 def getAllLocationsInBiome(locations, biome):
     result = {}
     for loc in locations:
+        # print(locations[loc].attrib)
         level = locations[loc].find('Level')
-        if level:
-            if level.attrib['biome'] == biome:
-                result[loc] = locations[loc]
+        # print(level)
+        if level.attrib['biome'] == biome:
+            result[loc] = locations[loc]
     
     return result
+
+def discoverAllPrevBiomes(locations, biome):
+    prev_biomes = biomes[:biomes.index(biome)]
+    print(prev_biomes)
+    for prev_biome in prev_biomes:
+        biome_locations = getAllLocationsInBiome(locations, prev_biome)
+        print(biome_locations)
+        setDiscoveredInLocations(biome_locations, True)
 
 def getFirstLocation(locations):
     min_loc = locations[0]
@@ -113,7 +121,6 @@ def unlockPassages(connection_between_biomes, biome):
         connection.attrib['locked'] = 'false'
     
 
-
 args = sys.argv.copy()
 args.pop(0)
 xml_file = args[0]
@@ -124,14 +131,13 @@ def main():
     read_config()
     locations = findAllLocations(root)
     connection_between_biomes = findAllConnectionsBetweenBiomes(locations)
-    # for gate in connection_between_biomes:
-    #     print(gate.attrib)
     new_location = getFirstLocationInBiome(locations, connection_between_biomes, target_biome)
     updateCurrentLocation(new_location)
+    discoverAllPrevBiomes(locations, target_biome)
     updateJovianRadiation(new_location)
     unlockPassages(connection_between_biomes, target_biome)
-    for gate in connection_between_biomes:
-        print(gate.attrib)
+    # for gate in connection_between_biomes:
+    #     print(gate.attrib)
     tree.write(xml_file)
 
 main()
