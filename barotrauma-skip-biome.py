@@ -66,8 +66,9 @@ def getAllLocationsInBiome(locations, biome):
     return result
 
 def discoverAllPrevBiomes(locations, biome):
+    setDiscoveredInLocations(locations, False)
+
     prev_biomes = biomes[:biomes.index(biome)]
-    print(prev_biomes)
     for prev_biome in prev_biomes:
         biome_locations = getAllLocationsInBiome(locations, prev_biome)
         print(biome_locations)
