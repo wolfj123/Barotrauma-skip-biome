@@ -15,7 +15,42 @@ update_discoverability_of_prev_biomes = True
 unlock_biome_passages = True
 
 def read_config():
-    print('TODO read_config')
+    global update_jovian_radiation
+    global jovian_radiation_distance
+    global update_discoverability_of_prev_biomes
+    global unlock_biome_passages
+
+    curr_dir = os.path.dirname(os.path.realpath(__file__))
+    config_file_name = 'config.xml'
+    config_file_path = os.path.join(curr_dir, config_file_name)
+
+    try:
+        config_tree = ET.parse(config_file_path)
+        config_root = config_tree.getroot() 
+        
+        for radiation in config_root.iter('Radiation'):
+            for enable in radiation.iter('update'):
+                update_jovian_radiation = (enable.attrib['value'] == "true")
+                print('Jovian Radiation update set to: {v}'.format(v = update_jovian_radiation))
+
+            if update_jovian_radiation:
+                for distance in radiation.iter('distance'):
+                    jovian_radiation_distance = int(distance.attrib['value'])
+                    print('Jovian Radiation distance from the sub set to: {v}'.format(v = jovian_radiation_distance))
+
+        for discoverabilty in config_root.iter('Discoverabilty'):
+            for enable in discoverabilty.iter('update'):
+                update_discoverability_of_prev_biomes = (enable.attrib['value'] == "true")
+                print('Updating visibility over previous biomes set to: {v}'.format(v = update_discoverability_of_prev_biomes))
+
+        for gates in config_root.iter('Gates'):
+            for enable in gates.iter('update'):
+                unlock_biome_passages = (enable.attrib['value'] == "true") 
+                print('Unlocking passage ways to previous biomes set to: {v}'.format(v = unlock_biome_passages))
+            
+    except Exception as e:
+        # print(e)
+        return   
 
 def findAllLocations(root):
     locations = {}
@@ -57,9 +92,7 @@ def setDiscoveredInLocations(locations, discovered):
 def getAllLocationsInBiome(locations, biome):
     result = {}
     for loc in locations:
-        # print(locations[loc].attrib)
         level = locations[loc].find('Level')
-        # print(level)
         if level.attrib['biome'] == biome:
             result[loc] = locations[loc]
     
@@ -71,7 +104,6 @@ def discoverAllPrevBiomes(locations, biome):
     prev_biomes = biomes[:biomes.index(biome)]
     for prev_biome in prev_biomes:
         biome_locations = getAllLocationsInBiome(locations, prev_biome)
-        print(biome_locations)
         setDiscoveredInLocations(biome_locations, True)
 
 def getFirstLocation(locations):
@@ -130,15 +162,27 @@ tree = ET.parse(xml_file)
 root = tree.getroot()
 def main():
     read_config()
+
+    # print(update_jovian_radiation)
+    # print(jovian_radiation_distance)
+    # print(update_discoverability_of_prev_biomes)
+    # print(unlock_biome_passages)
+
     locations = findAllLocations(root)
     connection_between_biomes = findAllConnectionsBetweenBiomes(locations)
     new_location = getFirstLocationInBiome(locations, connection_between_biomes, target_biome)
     updateCurrentLocation(new_location)
-    discoverAllPrevBiomes(locations, target_biome)
-    updateJovianRadiation(new_location)
-    unlockPassages(connection_between_biomes, target_biome)
-    # for gate in connection_between_biomes:
-    #     print(gate.attrib)
+    
+    if update_discoverability_of_prev_biomes:
+        discoverAllPrevBiomes(locations, target_biome)
+
+    if update_jovian_radiation:
+        updateJovianRadiation(new_location)
+
+    if unlock_biome_passages:
+        unlockPassages(connection_between_biomes, target_biome)
+
     tree.write(xml_file)
+    print("Save File Updated!")
 
 main()

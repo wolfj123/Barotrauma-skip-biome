@@ -1,0 +1,12 @@
+<Config>
+    <Radiation>
+        <update value="true"> whether or not to change the position of jovian radiation </update>
+        <distance value="3"> how much steps behind the sub to position the jovian radiation</distance>
+    </Radiation>
+    <Discoverabilty>
+        <update value="true"> whether or not to make all previous biomes visible in the map </update>
+    </Discoverabilty>
+    <Gates>
+        <update value="true"> whether or not to unlock passage to previous biomes </update>
+    </Gates>
+</Config>
