@@ -6,14 +6,15 @@ import os
 # https://barotraumagame.com/wiki/Biomes
 biomes = ['coldcaverns', 'europanridge', 'theaphoticplateau', 'thegreatsea', 'hydrothermalwastes']
 
-args = sys.argv.copy()
-args.pop(0)
 
-xml_file = args[0]
-target_biome = args[1]
+# DEFAULT CONFIG    
+update_jovian_radiation = True
+jovian_radiation_distance = 500
+update_discoverability_of_prev_biomes = True
+unlock_biome_passages = True
 
-tree = ET.parse(xml_file)
-root = tree.getroot()
+def read_config():
+    print('TODO read_config')
 
 locations = {}
 def findAllLocations(root):
@@ -71,9 +72,37 @@ def getFirstLocationInBiome(locations, biome):
             if level.attrib['biome'] == biome:
                 return location
 
-findAllLocations(root)
-min_loc = getFirstLocationInBiome(locations, biomes[1])
-print(min_loc.attrib)
+def updateCurrentLocation(location):
+    location_index = int(location.attrib['i'])
+    for map in root.iter('map'):
+        map.attrib['currentlocation'] = str(location_index)
+        map.set('updated', 'yes')
+
+def updateJovianRadiation(location):
+    print("TODO updateJovianRadiation")
+
+def unlockPassages(biome):
+    print("TODO unlockPassages")
+
+
+
+args = sys.argv.copy()
+args.pop(0)
+xml_file = args[0]
+target_biome = args[1]
+tree = ET.parse(xml_file)
+root = tree.getroot()
+def main():
+    read_config()
+    findAllLocations(root)
+    new_location = getFirstLocationInBiome(locations, target_biome)
+    updateCurrentLocation(new_location)
+    updateJovianRadiation(new_location)
+    unlockPassages(target_biome)
+    tree.write(xml_file)
+
+main()
+
 
 
 
