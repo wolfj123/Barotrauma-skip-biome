@@ -5,23 +5,51 @@ import os
 
 # https://barotraumagame.com/wiki/Biomes
 biomes = ['coldcaverns', 'europanridge', 'theaphoticplateau', 'thegreatsea', 'hydrothermalwastes']
+JOVIAN_RADIATION_STEP = 100
 
 
 # DEFAULT CONFIG    
 update_jovian_radiation = True
-jovian_radiation_distance = 500
+jovian_radiation_distance = 8 * JOVIAN_RADIATION_STEP
 update_discoverability_of_prev_biomes = True
 unlock_biome_passages = True
 
 def read_config():
     print('TODO read_config')
 
-locations = {}
 def findAllLocations(root):
+    locations = {}
     for loc in root.iter('location'):
         location_index = int(loc.attrib['i'])
         locations[location_index] = loc
-        
+    return locations
+
+def findConnectionToBiome(locations, biome):
+    if biome == biomes[0]:
+        return
+    
+    prev_biome = biomes[biomes.index(biome) - 1]
+    last_location_in_prev_biome = None
+    for loc in locations:
+        level = locations[loc].find('Level')
+        if level.attrib['biome'] == prev_biome:
+            if locations[loc].attrib['isgatebetweenbiomes'] == "true":
+                last_location_in_prev_biome = locations[loc]
+                break
+    last_location_in_prev_biome_index = int(last_location_in_prev_biome.attrib['i'])
+
+    for connection in root.iter('connection'):
+        connection_locations = connection.attrib['locations'].split(',')
+        for idx, con_loc in enumerate(connection_locations):
+            if int(con_loc) == last_location_in_prev_biome_index and connection.attrib['biome'] == biome:
+                return connection          
+
+def findAllConnectionsBetweenBiomes(locations):
+    connection_between_biomes = []
+    for biome in biomes[1:]:
+        connection_between_biomes.append(findConnectionToBiome(locations, biome))
+    return connection_between_biomes
+
 def setDiscoveredInLocations(locations, discovered):
     for loc in locations:
         locations[loc].attrib['discovered'] = str(discovered).lower()
@@ -37,53 +65,53 @@ def getAllLocationsInBiome(locations, biome):
     
     return result
 
-def getFirstLocationInBiome(locations, biome):
-    if biome == biomes[0]:
-        min_loc = locations[0]
-        for loc in locations:
-            curr_min_level = min_loc.find('Level')
-            level = locations[loc].find('Level')
-            if float(level.attrib['difficulty']) < float(curr_min_level.attrib['difficulty']):
-                min_loc = locations[loc]
-        return min_loc
-    else:
-        prev_biome = biomes[biomes.index(biome) - 1]
-        last_location_in_prev_biome = None
-        for loc in locations:
-            level = locations[loc].find('Level')
-            if level.attrib['biome'] == prev_biome:
-                if locations[loc].attrib['isgatebetweenbiomes'] == "true":
-                    last_location_in_prev_biome = locations[loc]
-                    break
-        last_location_in_prev_biome_index = int(last_location_in_prev_biome.attrib['i'])
+def getFirstLocation(locations):
+    min_loc = locations[0]
+    for loc in locations:
+        curr_min_level = min_loc.find('Level')
+        level = locations[loc].find('Level')
+        if float(level.attrib['difficulty']) < float(curr_min_level.attrib['difficulty']):
+            min_loc = locations[loc]
+    return min_loc
 
-        connections_of_last_location_in_prev_biome = []
-        for connection in root.iter('connection'):
-            connection_locations = connection.attrib['locations'].split(',')
-            for idx, con_loc in enumerate(connection_locations):
-                if int(con_loc) == last_location_in_prev_biome_index:
-                    other_con_loc = connection_locations[(idx + 1) % len(connection_locations)]
-                    connection_from_prev_biome_index = int(other_con_loc)
-                    location_connected_to_last_location_on_prev_biome = locations[connection_from_prev_biome_index]
-                    connections_of_last_location_in_prev_biome.append(location_connected_to_last_location_on_prev_biome)
-        
-        for location in connections_of_last_location_in_prev_biome:
-            level = level = location.find('Level')
-            if level.attrib['biome'] == biome:
-                return location
+def getFirstLocationInBiome(locations, connection_between_biomes, biome):
+    if biome == biomes[0]:
+        return getFirstLocation(locations)
+
+    connection = connection_between_biomes[biomes.index(biome) - 1]
+    locations_indices_in_connection = connection.attrib['locations'].split(',')
+    for loc_idx in locations_indices_in_connection:
+        loc = locations[int(loc_idx)]
+        loc_biome = loc.find('Level').attrib['biome']
+        if loc_biome == biome:
+            return loc
 
 def updateCurrentLocation(location):
     location_index = int(location.attrib['i'])
     for map in root.iter('map'):
         map.attrib['currentlocation'] = str(location_index)
-        map.set('updated', 'yes')
 
 def updateJovianRadiation(location):
-    print("TODO updateJovianRadiation")
+    location_x = float(location.attrib['position'].split(',')[0])
+    new_jovian_radiotion_location = int(location_x - jovian_radiation_distance)
+    for radiation in root.iter('Radiation'):
+        radiation.attrib['amount'] = str(new_jovian_radiotion_location)
 
-def unlockPassages(biome):
-    print("TODO unlockPassages")
+def lockAllPassages(connection_between_biomes):
+    for connection in connection_between_biomes:
+        connection.attrib['locked'] = 'true'
 
+def unlockPassages(connection_between_biomes, biome):
+    lockAllPassages(connection_between_biomes)
+
+    if(biome == biomes[0]):
+        return
+
+    biome_index = biomes.index(biome)
+    prev_connections = connection_between_biomes[:biome_index]
+    for connection in prev_connections:
+        connection.attrib['locked'] = 'false'
+    
 
 
 args = sys.argv.copy()
@@ -94,18 +122,16 @@ tree = ET.parse(xml_file)
 root = tree.getroot()
 def main():
     read_config()
-    findAllLocations(root)
-    new_location = getFirstLocationInBiome(locations, target_biome)
+    locations = findAllLocations(root)
+    connection_between_biomes = findAllConnectionsBetweenBiomes(locations)
+    # for gate in connection_between_biomes:
+    #     print(gate.attrib)
+    new_location = getFirstLocationInBiome(locations, connection_between_biomes, target_biome)
     updateCurrentLocation(new_location)
     updateJovianRadiation(new_location)
-    unlockPassages(target_biome)
+    unlockPassages(connection_between_biomes, target_biome)
+    for gate in connection_between_biomes:
+        print(gate.attrib)
     tree.write(xml_file)
 
 main()
-
-
-
-
-
-# for loc in locations:
-#     print(locations[loc].attrib['basename'])
